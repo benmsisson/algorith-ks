@@ -4,7 +4,7 @@ Implementation of the KS Algorithm for graph reassembling as described in *Effic
 [Read the paper on arXiv](https://arxiv.org/abs/1807.03479)
 
 # Instructions
-To execute all the tests of the KS Algorith, run the following from your commandline application of choice:
+To execute all the tests for KS Algorithm, run the following from your commandline application of choice:
 ```
 python main.py -all
 ```
