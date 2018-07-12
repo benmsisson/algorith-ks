@@ -1,7 +1,7 @@
 from graphics.lib import *
 from util.graph_spec import Vertex, check_one_three
 from util.file_io import read_graph, write_graph
-from algorithm.graph import start_reassembly
+from algorithm.driver import start_reassembly
 
 numButtons = 8
 ADD_NODE = 0

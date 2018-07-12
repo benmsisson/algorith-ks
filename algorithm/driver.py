@@ -31,8 +31,8 @@ def start_reassembly(vertices,graph_name):
         blank_verts[v] = Vertex(vertex.pos)
 
     print(graph_name)
-    # draw.simple(vertices)
+    draw.simple(vertices, graph_name=graph_name)
     planarity, layer_states = start_phase(vertices, blank_verts)
     rs = ReassemblyState(vertices, planarity)
     algorithmKS(layer_states, rs, planarity, True)
-    draw.graph(rs=rs,autoscroll=True,update_time=30,close_on_finish=True,reset_index=False,graph_name=graph_name)
+    draw.graph(rs=rs,autoscroll=False,update_time=30,close_on_finish=True,reset_index=False,graph_name=graph_name)

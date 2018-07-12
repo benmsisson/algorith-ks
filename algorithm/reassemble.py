@@ -7,9 +7,9 @@ from util.graph_spec import upper_left_most
 @unique
 class Ops(Enum):
     COLLAPSE_TYPE_A = 0
-    COLLAPSE_TYPE_BC = 2
-    MERGE_TYPE_A = 3
-    MERGE_TYPE_BC = 4
+    COLLAPSE_TYPE_BC = 1
+    MERGE_TYPE_A = 2
+    MERGE_TYPE_BC = 3
 
 # The basic premise for the algorithm is to start on the outside and move inwards, first collapsing
 # Type A trees and Type B trees (with singleton support sets) that have all their vertices in a row,
@@ -46,6 +46,8 @@ def algorithmKS(layer_states, rs, planarity, check_valid):
                 raise ("Invalid operation")
             break
 
+    # AlgorithmKS has finished running, but we now test the results to confirm
+    # their correctness.
     rs.build_Blst()
     if check_valid:
         validate(layer_states, rs)
