@@ -5,6 +5,7 @@ import graphics.draw as draw
 from util.reassembly_state import ReassemblyState
 from util.graph_spec import *
 
+
 # It may be possible to remove space surrounding the graph in order to have it fit the screen more easily.
 def crop_graph(vertices):
     min_x, min_y = 2**16, 2**16
@@ -21,7 +22,8 @@ def crop_graph(vertices):
     for v, vertex in enumerate(vertices):
         vertex.pos = (vertex.pos[0] - min_x, vertex.pos[1] - min_y)
 
-def start_reassembly(vertices,graph_name):
+
+def start_reassembly(vertices, graph_name):
     if not check_one_three(vertices):
         return
 

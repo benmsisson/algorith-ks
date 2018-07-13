@@ -1,6 +1,7 @@
 from math import atan2, pi
 from graphics.lib import Point
 
+
 class Vertex:
     def __init__(self, pos):
         self.pos = pos
@@ -31,6 +32,7 @@ class Vertex:
     def circle_point(self, sizeMod, radius, x_offset):
         x, y = self.pos
         return Point(x * sizeMod + radius + x_offset, y * sizeMod + radius)
+
 
 # to_consider is a set or a list of ints, not of vertices
 def upper_left_most(vertices, to_consider=None, only_deg_1=True):
@@ -85,6 +87,7 @@ def outer_face(vertices, start):
 
     path = []
     unique_path = []
+    # Initialize every vertex such that all vertices are unmarked
     visited = set()
     edges_traversed = set()
     total_edges_traversed = []
@@ -94,11 +97,15 @@ def outer_face(vertices, start):
     current = start
 
     x = 0
+    #While the graph has edges left unmarked, starting at the upper leftmost unmarked vertex, traverse the graph by taking the next clockwise edge at each vertex encountered, marking each time a vertex is visited, until the traversal returns to the original vertex.
     while True:
         x += 1
         # This should never be raised, but I have this here so we know.
         # This signals an error with the embedding, or the start position
         assert x < len(vertices) * 2
+
+        # Starting at the upper leftmost unmarked vertex,
+        # traverse the graph by taking the next clockwise edge at each vertex encountered.
 
         path.append(current)
         if not current in visited:

@@ -4,12 +4,14 @@ from collections import deque
 from math import pi, atan2
 from util.graph_spec import upper_left_most
 
+
 @unique
 class Ops(Enum):
     COLLAPSE_TYPE_A = 0
     COLLAPSE_TYPE_BC = 1
     MERGE_TYPE_A = 2
     MERGE_TYPE_BC = 3
+
 
 # The basic premise for the algorithm is to start on the outside and move inwards, first collapsing
 # Type A trees and Type B trees (with singleton support sets) that have all their vertices in a row,
@@ -22,8 +24,10 @@ def algorithmKS(layer_states, rs, planarity, check_valid):
         # Not equipped to handle planarity == 1
         assert False
 
+    # prepare_cycle(outermost cycle enclosing the whole graph)
     prep_cycle(layer_states, 0, rs, 0)
 
+    # While any queue is not empty, pop the oldest tree in the queue at the deepest E-outerplanarity level. If the tree has not collapsed, collapse the tree. Otherwise, merge the tree.
     done = False
     while not done:
         done = True
@@ -94,7 +98,7 @@ def assert_get(single_set):
     return next(iter(single_set))
 
 
-def tree_successor(layer_states, layer, rs, tree, Bout):
+def tree_successor(layer_states, layer, rs, tree, super_v):
     def succ(u):
         # succ keeps going from a particular vertex around a cycle until it finds an inner vertex
         # or makes a full circle
@@ -299,18 +303,19 @@ def prep_cycle(layer_states, layer, rs, cycle):
 
 # merge cycle is called when we have no incident trees on this cycle that have not been collapsed.
 # So we find a tree incident to this cycle that has a successor that has not merged yet
-# then merge into that. If there is no such tree, then we esclated this Bout to the cycle above us
-def merge_cycle(layer_states, layer, rs, c, Bout):
+# then merge into that. If there is no such tree, then we esclated this super to the cycle above us
+def merge_cycle(layer_states, layer, rs, c, super_v):
     ls = layer_states[layer]
     ls_a = layer_states[layer - 1]
     found = False
     next_t = None
 
+    # Find the clockwise successor tree of this cycle on the layer enclosing this one.
     for v in ls.cycle_paths[c]:
         if not v in ls.vertex_to_tree:
             continue
         t = ls.vertex_to_tree[v]
-        u = tree_successor(layer_states, layer, rs, t, Bout)
+        u = tree_successor(layer_states, layer, rs, t, super_v)
         if not u in ls.vertex_to_tree:
             continue
         next_t = ls.vertex_to_tree[u]
@@ -319,7 +324,7 @@ def merge_cycle(layer_states, layer, rs, c, Bout):
 
         found = True
         break
-
+    # If there is such a tree, merge super and the vertex closest to this cycle.
     if found:
         s = len(ls.supports[next_t])
         # Type A trees all should have been collapsed and merged on a particular cycle before the
@@ -327,42 +332,52 @@ def merge_cycle(layer_states, layer, rs, c, Bout):
         assert s != 0
         if s == 1:
             u = next(iter(ls.supports[next_t]))
-            rs.merge_into_v_to_Bout(u, Bout)
+            rs.merge_into_v_to_Bout(u, super_v)
         else:
             # Should not be merging into such a tree (But if we are then maybe we can just push into the Bin)
             assert False
         return
 
-    # We have completed this layer and this is the final layer, so we have completed the graph!
+    # Otherwise, if the outer cycle is the outermost cycle, the graph has been fully collapsed and no more work is left. We have completed the graph!
     if layer == 1:
         return
 
     # Otherwise, we escalate, and check if we left a tree incident
     # If not then it it time for merge_tree again
     v = ls.cycle_paths[c][0]
-    c = ls.vertex_to_cycle_above[v]
-    if len(ls_a.trees_by_cycle[c]) != 0:
-        prep_incident_tree(layer_states, layer - 1, rs, c, Bout)
+    # Refer to the cycle enclosing c as outer_cycle
+    outer_cycle = ls.vertex_to_cycle_above[v]
+
+    # Otherwise, if the outer cycle has any incident trees left uncollapsed
+    if len(ls_a.trees_by_cycle[outer_cycle]) != 0:
+        # It will have exactly one incident tree left uncollapsed.
+        # prepare_incident_tree(the outer cycle, super)
+        prep_incident_tree(layer_states, layer - 1, rs, outer_cycle, super_v)
+    # Otherwise, we must recurse upwards to continue.
     else:
-        merge_cycle(layer_states, layer - 1, rs, c, Bout)
+        # merge_cycle(the outer cycle, super)
+        merge_cycle(layer_states, layer - 1, rs, outer_cycle, super_v)
 
 
-def prep_incident_tree(layer_states, layer, rs, c, Bout):
+def prep_incident_tree(layer_states, layer, rs, c, super_v):
     ls = layer_states[layer]
-    t = assert_get(ls.trees_by_cycle[c])
-    v = ls.tree_cycle_to_support_vertex[(t, c)]
+    # There is exactly one tree uncollapsed incident to c
+    incident_tree = assert_get(ls.trees_by_cycle[c])
+    v = ls.tree_cycle_to_support_vertex[(incident_tree, c)]
     # We now have the support vertex on this cycle of the last incident tree,
-    # and the Bout that should merge into it, so we do that now.
-    rs.merge_into_Bin(v, Bout)
-    ls.supports[t].remove(v)
-    if len(ls.supports[t]) != 1:
+    # and the super that should merge into it, so we do that now.
+    #  Merge cycle and the root vertex of the incident tree on cycle
+    rs.merge_into_Bin(v, super_v)
+    ls.supports[incident_tree].remove(v)
+    if len(ls.supports[incident_tree]) != 1:
         return
-    if t in rs.tree_will_collapse[layer]:
+    if incident_tree in rs.tree_will_collapse[layer]:
         return
-    if len(ls.tree_to_nonconsec[t]) > 1:
+    if len(ls.tree_to_nonconsec[incident_tree]) > 1:
         return
-    rs.tree_will_collapse[layer].add(t)
-    rs.operations[layer].append((Ops.COLLAPSE_TYPE_BC, t))
+    # If the incident tree is ready to collapse, add the incident tree to the queue for this layer so it as a type B tree.
+    rs.tree_will_collapse[layer].add(incident_tree)
+    rs.operations[layer].append((Ops.COLLAPSE_TYPE_BC, incident_tree))
 
 
 def collapse_type_a(layer_states, layer, rs, tree):
@@ -371,11 +386,13 @@ def collapse_type_a(layer_states, layer, rs, tree):
     # so we update those here.
     ls = layer_states[layer]
     v_tree = ls.v_by_tree[tree]
+    # Refer to the upper left most vertex of tree as start
     start = upper_left_most(ls.vertices, v_tree)
-    Bout = collapse_tree(ls.vertices, start, v_tree, rs)
+    # Collapse_tree(tree,v)
+    super_v = collapse_tree(ls.vertices, start, v_tree, rs)
     rs.tree_has_collapsed[layer][tree] = True
 
-    rs.tree_to_Bout[layer][tree] = Bout
+    rs.tree_to_Bout[layer][tree] = super_v
     ls_a = layer_states[layer - 1]
     v = next(iter(v_tree))
     c = ls.vertex_to_cycle_above[v]
@@ -387,18 +404,23 @@ def collapse_type_a(layer_states, layer, rs, tree):
 
         rs.collapsed_by_cycle[layer - 1][c].add(v)
 
+    # Add tree to the queue for this layer so it merges as a type A tree
     rs.operations[layer].append((Ops.MERGE_TYPE_A, tree))
+
 
 def collapse_type_bc(layer_states, layer, rs, tree):
     ls = layer_states[layer]
     if len(ls.supports[tree]) == 0:
         # Because all supports of this Type BC tree were collapsed at the same time,
         # we can handle it as a Type A, which we will do immmediately to preserve order.
-        collapse_type_a(layer_states,layer,rs,tree)
+        collapse_type_a(layer_states, layer, rs, tree)
         return
     v_tree = ls.v_by_tree[tree]
+
+    # Refer to the root of tree as v
     v = assert_get(ls.supports[tree])
-    Bout = collapse_tree(ls.vertices, v, v_tree, rs)
+    # collapse_tree(tree,v)
+    super_v = collapse_tree(ls.vertices, v, v_tree, rs)
     rs.tree_has_collapsed[layer][tree] = True
 
     for u in v_tree:
@@ -407,7 +429,9 @@ def collapse_type_bc(layer_states, layer, rs, tree):
             rs.collapsed.add(u)
 
     c = ls.vertex_to_cycle[v]
-    rs.vertex_to_Bout[v] = Bout
+    rs.vertex_to_Bout[v] = super_v
+
+    # Add tree to the queue for this layer so it merges as a type B tree
     rs.operations[layer].append((Ops.MERGE_TYPE_BC, v))
 
 
@@ -427,49 +451,61 @@ def merge_type_a(layer_states, layer, rs, tree):
     v_tree = ls.v_by_tree[tree]
 
     rs.tree_has_merged[layer][tree] = True
-    Bout = rs.tree_to_Bout[layer][tree]
+    # Refer to the super vertex that tree is part of as super_v
+    super_v = rs.tree_to_Bout[layer][tree]
 
-    c = ls.vertex_to_cycle_above[next(iter(v_tree))]
-    if layer != 1 and len(rs.collapsed_by_cycle[layer - 1][c]) == len(
-            ls_a.cycle_paths[c]):
+    # Refer to the cycle enclosing tree as outer cycle
+    outer_cycle = ls.vertex_to_cycle_above[next(iter(v_tree))]
+    # If the outer cycle has no incident trees left uncollapsed, merge_cycle(the outer cycle, super_v) and then return.
+    if layer != 1 and len(rs.collapsed_by_cycle[layer - 1]
+                          [outer_cycle]) == len(ls_a.cycle_paths[outer_cycle]):
         # We have collapsed every vertex on this cycle, so the cycle as a whole is ready to be merged
-        merge_cycle(layer_states, layer - 1, rs, c, Bout)
-
+        merge_cycle(layer_states, layer - 1, rs, outer_cycle, super_v)
         return
-    elif layer != 1 and len(rs.collapsed_by_cycle[layer - 1]
-                            [c]) == len(ls_a.cycle_paths[c]) - 1:
+    # Otherwise, if the outer cycle has a single incident tree left uncollapsed, prep_incident_tree(the outer cycle, super_v) and then return.
+    elif layer != 1 and len(rs.collapsed_by_cycle[layer - 1][outer_cycle]
+                            ) == len(ls_a.cycle_paths[outer_cycle]) - 1:
         # There is a single vertex left uncollapsed, so there must be an incident tree left uncollapsed.
-        prep_incident_tree(layer_states, layer - 1, rs, c, Bout)
+        prep_incident_tree(layer_states, layer - 1, rs, outer_cycle, super_v)
         return
-    next_v = tree_successor(layer_states, layer, rs, tree, Bout)
-    if next_v == -1:
+    # Find a vertex adjacent to tree on the outer cycle that, is part of a tree on the same layer as tree and is not in the same super vertex as tree. Refer to that vertex as successor vertex.
+    succesor_vertex = tree_successor(layer_states, layer, rs, tree, super_v)
+
+    # If that vertex does not exist, there is nothing to do until the outer cycle is ready to merge because outer cycle is waiting on a tree that is not adjacent to this tree. Return in order to wait for that tree.
+    if succesor_vertex == -1:
         # There is no successor for this tree and we are done on this cycle,
         # however, the cycle may not be ready for collapse. So we pass on doing anything.
         return
 
-    t = ls.vertex_to_tree[next_v]
-    next_t = ls.vertex_to_tree[next_v]
+    # Refer to the tree that the successor vertex is part of as successor_tree.
+    succesor_tree = ls.vertex_to_tree[succesor_vertex]
+    next_t = ls.vertex_to_tree[succesor_vertex]
 
-    # Because t and next_t are now the same super node, the predecessor of our successor
+    # Because succesor_tree and next_t are now the same super vertex, the predecessor of our successor
     # is our true predecessor now.
-    true_pred = ls.vertex_to_sibling_predecessor[next_v]
+    true_pred = ls.vertex_to_sibling_predecessor[succesor_vertex]
     true_succ = ls.nonconsec_to_successor[true_pred]
     succ_tree = ls.vertex_to_tree[true_succ]
     if succ_tree in rs.tree_has_merged[layer]:
         ls.tree_to_nonconsec[next_t].remove(true_pred)
 
-    if len(ls.supports[t]) != 0 and next_v in rs.collapsed:
-        if t in rs.tree_has_merged[layer]:
+    # If the successor tree is Type-B (we must check its status dynamically)
+    if len(ls.supports[succesor_tree]) != 0 and succesor_vertex in rs.collapsed:
+        # If the successor tree has merged,there is nothing to do because there is nowhere for us to merge that has not already merged. Just return as the job of this tree is done.
+        if succesor_tree in rs.tree_has_merged[layer]:
             # The tree ahead of us has already merged, so there is nowhere else for us to merge into.
             return
-        # Otherwise, we merge our Bout into theirs, and then wait for them to merge.
-        u = assert_get(ls.supports[t])
-        rs.merge_into_v_to_Bout(u, Bout)
-    # note the or here whereas the above was linked with an and
-    elif len(ls.supports[t]) != 0 or not t in rs.tree_to_Bout[layer]:
-        # This is a tree that has yet to collapse, so just push our Bout into
+        # The successor vertex will never be the root vertex of the successor tree.
+        # Otherwise, we merge our super_v into theirs, and then wait for them to merge.
+        u = assert_get(ls.supports[succesor_tree])
+        # merge super_v and the super vertex of which the successor vertex is a part
+        rs.merge_into_v_to_Bout(u, super_v)
+    # Otherwise, if the successor tree is Type-B or it has not collapsed yet,merge super and the successor vertex.
+    elif len(ls.supports[succesor_tree]
+             ) != 0 or not succesor_tree in rs.tree_to_Bout[layer]:
+        # This is a tree that has yet to collapse, so just push our super_v into
         # the Bin and wait for them to collapse.
-        rs.merge_into_Bin(next_v, Bout)
+        rs.merge_into_Bin(succesor_vertex, super_v)
 
         # The tree that we just merged into may be ready to collapsed
         if len(ls.tree_to_nonconsec[next_t]
@@ -477,17 +513,19 @@ def merge_type_a(layer_states, layer, rs, tree):
             # if it is not, or it has already been marked as ready, do nothing
             return
 
+        # If successor tree is ready to collapse, add the successor tree to the queue for this layer so it merges with the proper type.
         rs.tree_will_collapse[layer].add(next_t)
         # The tree we merged into is ready to collapse, so add it to the queue depending on its type
+        # The successor tree may be either type A or type B.
         if len(ls.supports[next_t]) == 0:
             rs.operations[layer].append((Ops.COLLAPSE_TYPE_A, next_t))
         elif len(ls.supports[next_t]) == 1:
             rs.operations[layer].append((Ops.COLLAPSE_TYPE_BC, next_t))
-
-    elif not t in rs.tree_has_merged[layer]:
-        # Ahead of us is a type A tree that has already collapsed but has yet to merge.
-        n_Bout = rs.circle_plus(rs.tree_to_Bout[layer][t], Bout)
-        rs.tree_to_Bout[layer][t] = n_Bout
+    # Otherwise, the successor tree is a type A tree that has collapsed but not yet merged.
+    elif not succesor_tree in rs.tree_has_merged[layer]:
+        # Merge super and the super vertex of which the successor tree is a part
+        n_Bout = rs.circle_plus(rs.tree_to_Bout[layer][succesor_tree], super_v)
+        rs.tree_to_Bout[layer][succesor_tree] = n_Bout
 
 
 def merge_type_bc(layer_states, layer, rs, v):
@@ -502,68 +540,84 @@ def merge_type_bc(layer_states, layer, rs, v):
         return path[(index - 1) % len(path)]
 
     ls = layer_states[layer]
-    Bout = rs.vertex_to_Bout[v]
-    c = ls.vertex_to_cycle[v]
-    t = ls.vertex_to_tree[v]
+    # Refer to the super vertex that v is part of as the super_v
+    super_v = rs.vertex_to_Bout[v]
+    # Refer to the cycle v is a on as cycle
+    cycle = ls.vertex_to_cycle[v]
+    # Refer to the tree v is part of as tree
+    tree = ls.vertex_to_tree[v]
 
-    # Update the data structures keep track of merged trees. Note that the support vertex is now
-    # finally considered collapsed.
+    # Mark v as collapsed as it was not marked as collapsed earlier.
     rs.collapsed.add(v)
-    if not c in rs.collapsed_by_cycle[layer]:
-        rs.collapsed_by_cycle[layer][c] = set()
-    rs.collapsed_by_cycle[layer][c].add(v)
-    ls.trees_by_cycle[c].remove(t)
-    rs.tree_has_merged[layer][t] = True
-    u = succ(v)
+    # Update the data structures keep track of merged trees.
+    if not cycle in rs.collapsed_by_cycle[layer]:
+        rs.collapsed_by_cycle[layer][cycle] = set()
+    rs.collapsed_by_cycle[layer][cycle].add(v)
+    ls.trees_by_cycle[cycle].remove(tree)
+    rs.tree_has_merged[layer][tree] = True
+    # Refer to the clockwise successor of v on cycle as successor_vertex
+    succesor_vertex = succ(v)
 
-    if len(ls.vertices[u]) == 3:
-        next_t = ls.vertex_to_tree[u]
-        if not next_t in rs.tree_has_collapsed[layer] or next_t in rs.tree_has_merged:
-            # In this case, the vertex has not been collapsed, so merge into it
-            # and if the tree now has all of its vertices in a row, it is ready to collapse.
-            rs.merge_into_Bin(u, Bout)
-            rs.vertex_to_target[v] = u
-            if len(rs.collapsed_by_cycle[layer][c]) + 1 != len(
-                    ls.cycle_paths[c]):
+    # If the successor vertex is an outer vertex
+    if len(ls.vertices[succesor_vertex]) == 3:
+        # Refer to the tree that the successor vertex is part of as the successor_tree.
+        succesor_tree = ls.vertex_to_tree[succesor_vertex]
+        # If successor vertex is not part of a super vertex
+        if not succesor_tree in rs.tree_has_collapsed[layer] or succesor_tree in rs.tree_has_merged:
+            # Merge the super and successor_vertex
+            rs.merge_into_Bin(succesor_vertex, super_v)
+            # In this case, the vertex has not been collapsed, so merge into it.
+            rs.vertex_to_target[v] = succesor_vertex
+            # Check if we are about to about to collapse a cycle that has already been added to the queue, or will be very shortly.
+            if len(rs.collapsed_by_cycle[layer][cycle]) + 1 != len(
+                    ls.cycle_paths[cycle]):
                 return
-            rs.collapsed_by_cycle[layer][c].add(u)
-            ls.supports[next_t].remove(u)
 
-            if len(ls.supports[next_t]
-                   ) == 1 and len(ls.tree_to_nonconsec[next_t]) <= 1:
-                rs.operations[layer].append((Ops.COLLAPSE_TYPE_BC, next_t))
+            # If the successor tree is the only tree left on cycle uncollapsed and it is ready to collapse, add the successor tree to the queue for this layer so it merges as a type B tree.
+            rs.collapsed_by_cycle[layer][cycle].add(succesor_vertex)
+            ls.supports[succesor_tree].remove(succesor_vertex)
+
+            if len(ls.supports[succesor_tree]
+                   ) == 1 and len(ls.tree_to_nonconsec[succesor_tree]) <= 1:
+                rs.operations[layer].append((Ops.COLLAPSE_TYPE_BC,
+                                             succesor_tree))
             return
 
-        elif len(rs.collapsed_by_cycle[layer][c]) != len(ls.cycle_paths[c]):
-            # If we have not collapsed every vertex on this cycle, we push our Bout to the next vertex
-            rs.merge_into_v_to_Bout(u, Bout)
+        # Otherwise, if there are any trees on cycle left uncollapsed
+        elif len(rs.collapsed_by_cycle[layer][cycle]) != len(
+                ls.cycle_paths[cycle]):
+            # If we have not collapsed every vertex on this cycle, we push our super_v to the next vertex
+            # Merge super and the super node of which the successor_vertex is a part
+            rs.merge_into_v_to_Bout(succesor_vertex, super_v)
             return
-
         else:
             # Otherwise, this entire cycle has been collapsed and is ready to merge.
-            merge_cycle(layer_states, layer, rs, c, Bout)
+            # merge_cycle(layer_states, layer, rs, c, super)
+            merge_cycle(layer_states, layer, rs, cycle, super_v)
             return
-
     else:
-        assert len(ls.vertices[u]) == 2
+        assert len(ls.vertices[succesor_vertex]) == 2
 
-        rs.merge_into_Bin(u, Bout)
-        c = ls.vertex_to_cycle[u]
-        if len(ls.trees_by_cycle[c]) > 1:
+        # Merge super and successor_vertex
+        rs.merge_into_Bin(succesor_vertex, super_v)
+        cycle = ls.vertex_to_cycle[succesor_vertex]
+        if len(ls.trees_by_cycle[cycle]) > 1:
             return
         # Though technically we can recurse because there is either 0 or 1 trees left unmerged.
         # It is possible that we have a single tree that is about to merge, so if it is, just wait
         # until it does is.
-        if len(ls.trees_by_cycle[c]) == 1:
-            t = next(iter(ls.trees_by_cycle[c]))
-            if len(ls.supports[t]) == 1 and next(
-                    iter(ls.supports[t])) in rs.vertex_to_Bout:
+        if len(ls.trees_by_cycle[cycle]) == 1:
+            tree = next(iter(ls.trees_by_cycle[cycle]))
+            # The tree is about to merge anyway because its other cycle vertices have collapsed.
+            if len(ls.supports[tree]) == 1 and next(
+                    iter(ls.supports[tree])) in rs.vertex_to_Bout:
                 return
-
-        prep_cycle(layer_states, layer, rs, c)
+        # If cycle has 0 or 1 incident trees left uncollapsed and it has not been prepared, then prep_cycle(cycle).
+        prep_cycle(layer_states, layer, rs, cycle)
 
 
 def collapse_tree(vertices, x, v_tree, rs):
+    # x will always be leaf vertex of tree
     def deg(index):
         return len([a for a in vertices[index] if a in v_tree])
 
@@ -572,13 +626,13 @@ def collapse_tree(vertices, x, v_tree, rs):
         return i + 1
 
     def set_Bout(v, Bval):
-        Bout[v] = Bval
+        super_v[v] = Bval
 
     def set_Bout_from_Bin(v):
         Bval = rs.Bin[v]
         if Bval == frozenset([v]):
             Bval = rs.super_append(Bval)
-        Bout[v] = Bval
+        super_v[v] = Bval
 
     def angle_from_twelve(x, y):
         return (pi / 2 - atan2(y, x) + 2 * pi) % (2 * pi)
@@ -614,56 +668,77 @@ def collapse_tree(vertices, x, v_tree, rs):
         return pick_angle_by_function(v, min)
 
     indx = dict()
-    Bout = [0 for _ in vertices]
+    super_v = [0 for _ in vertices]
     pred = dict()
+    # Refer to the vertex adjacent to x as v
     v = assert_get([a for a in vertices[x] if a in v_tree])
     pred[v] = x
     i = 1
 
-    # This is a tree consisting of two nodes, so we just merge the two and return
+    # If v is a leaf vertex of tree, tree is a tree consisting of two vertices.
     if deg(v) == 1:
+        # Assign an index to x
         i = index_vertex(x)
+        # Assign an index to v
         i = index_vertex(v)
         set_Bout_from_Bin(x)
         set_Bout_from_Bin(v)
-        set_Bout(x, rs.circle_plus(Bout[x], Bout[v]))
+        # Return the super vertex of x and v
+        set_Bout(x, rs.circle_plus(super_v[x], super_v[v]))
         rs.update_indx(indx)
-        return Bout[x]
+        return super_v[x]
 
     while v != x:
+        # If v is a leaf vertex, we have reached a leaf node, so it will be indexed and then we will retract.
         if deg(v) == 1:
-            # We have reached a leaf node, so it will be indexed and then we will retract.
             set_Bout_from_Bin(v)
+            # Assign an index to v
             i = index_vertex(v)
+            # Set v to the predecessor of v
             v = pred[v]
             continue
 
+        # Refer to the left child of v as l
         l = left_child(v)
+        # Refer to the right child of v as l
         r = right_child(v)
 
         # Both left and right trees must be visited before we can continue
+        # If l does not have an index
         if not l in indx:
+            # Set the predecessor of l to v
             pred[l] = v
+            # set v to l
             v = l
             continue
 
+        # If r does not have an index
         if not r in indx:
+            # Set the predecessor of r to v
             pred[r] = v
+            # set v to r
             v = r
             continue
 
-        # At this point, both l and r are either degree 1 or are already collapsed, so v is ready
-        # to merge its branches.
+        # Note that at this point, l and r may be super vertices, but v is definitely not.
+        # As a result, v is ready to collapse.
         set_Bout_from_Bin(v)
-        Balpha = rs.circle_plus(Bout[v], Bout[l])
-        set_Bout(v, rs.circle_plus(Balpha, Bout[r]))
+        # Collapse l and v into a super vertex
+        Balpha = rs.circle_plus(super_v[v], super_v[l])
+        # Collapse the result with r and store it under v
+        set_Bout(v, rs.circle_plus(Balpha, super_v[r]))
+        # Assign an index to v
         i = index_vertex(v)
+        # Refer to the predecessor of v as v
         v = pred[v]
 
     # v == x, so we just merge our traversal with our start
+    # Assign an index to x
     i = index_vertex(x)
     v = assert_get([a for a in vertices[x] if a in v_tree])
     set_Bout_from_Bin(x)
     rs.update_indx(indx)
-    set_Bout(x, rs.circle_plus(Bout[x], Bout[v]))
-    return Bout[x]
+    # Collapse x and v into a final super vertex
+    set_Bout(x, rs.circle_plus(super_v[x], super_v[v]))
+    # Return that final super vertex
+    return super_v[x]

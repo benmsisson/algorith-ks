@@ -1,6 +1,7 @@
 from collections import deque
 from copy import deepcopy
 
+
 class ReassemblyState(object):
     def __init__(self, vertices, planarity):
         self.vertices = vertices
@@ -24,6 +25,9 @@ class ReassemblyState(object):
         self.tree_to_Bout = []
 
         self.vertex_to_target = dict()
+
+        # At each E-outerplanarity level in the graph ,define a queue that holds trees to be collapsed and merged.
+        # Also, define dictionaries that map trees to various reassembly data about that.
 
         for layer in range(planarity):
             self.operations.append(deque())
@@ -64,7 +68,8 @@ class ReassemblyState(object):
             assert v in self.vertex_to_target
             u = self.vertex_to_target[v]
             if u in self.vertex_to_Bout:
-                self.vertex_to_Bout[u] = self.circle_plus(self.vertex_to_Bout[u], Bout)
+                self.vertex_to_Bout[u] = self.circle_plus(
+                    self.vertex_to_Bout[u], Bout)
             else:
                 self.Bin[u] = self.circle_plus(self.Bin[u], Bout)
             return
