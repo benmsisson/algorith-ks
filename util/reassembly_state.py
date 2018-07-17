@@ -6,23 +6,23 @@ class ReassemblyState(object):
     def __init__(self, vertices, planarity):
         self.vertices = vertices
 
-        self.Bin = [0] * len(vertices)
+        self.super_in = [0] * len(vertices)
         for v in range(len(vertices)):
-            self.Bin[v] = frozenset([v])
+            self.super_in[v] = frozenset([v])
 
         self.dir_G = deepcopy(vertices)
         self.collapsed = set()
 
         self.indx = dict()
         self.total_i = 0
-        self.vertex_to_Bout = dict()
+        self.vertex_to_super_out = dict()
 
         self.operations = []
         self.collapsed_by_cycle = []
         self.tree_has_collapsed = []
         self.tree_has_merged = []
         self.tree_will_collapse = []
-        self.tree_to_Bout = []
+        self.tree_to_super_out = []
 
         self.vertex_to_target = dict()
 
@@ -35,7 +35,7 @@ class ReassemblyState(object):
             self.tree_has_collapsed.append(dict())
             self.tree_has_merged.append(dict())
             self.tree_will_collapse.append(set())
-            self.tree_to_Bout.append(dict())
+            self.tree_to_super_out.append(dict())
 
         self.re_list = [0] * (2 * len(self.vertices) - 1)
         self.re_index = 0
@@ -63,23 +63,23 @@ class ReassemblyState(object):
         if u in self.dir_G[v]:
             self.dir_G[v].remove_edge(u)
 
-    def merge_into_v_to_Bout(self, v, Bout):
+    def merge_vertex_to_super_out(self, v, super_v):
         if v in self.collapsed:
             assert v in self.vertex_to_target
             u = self.vertex_to_target[v]
-            if u in self.vertex_to_Bout:
-                self.vertex_to_Bout[u] = self.circle_plus(
-                    self.vertex_to_Bout[u], Bout)
+            if u in self.vertex_to_super_out:
+                self.vertex_to_super_out[u] = self.circle_plus(
+                    self.vertex_to_super_out[u], super_v)
             else:
-                self.Bin[u] = self.circle_plus(self.Bin[u], Bout)
+                self.super_in[u] = self.circle_plus(self.super_in[u], super_v)
             return
-        n_Bout = self.circle_plus(self.vertex_to_Bout[v], Bout)
-        self.vertex_to_Bout[v] = n_Bout
+        new_super = self.circle_plus(self.vertex_to_super_out[v], super_v)
+        self.vertex_to_super_out[v] = new_super
 
-    def merge_into_Bin(self, v, Bout):
-        Bval = self.super_append(self.Bin[v])
-        n_Bout = self.circle_plus(Bval, Bout)
-        self.Bin[v] = n_Bout
+    def merge_to_super_in(self, v, super_v):
+        Bval = self.super_append(self.super_in[v])
+        new_super = self.circle_plus(Bval, super_v)
+        self.super_in[v] = new_super
 
     def build_Blst(self):
         self.Blst = [0] * len(self.re_list)

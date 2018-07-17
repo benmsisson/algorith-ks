@@ -38,3 +38,4 @@ def start_reassembly(vertices, graph_name):
     rs = ReassemblyState(vertices, planarity)
     algorithmKS(layer_states, rs, planarity, True)
     draw.graph(rs=rs,autoscroll=False,update_time=30,close_on_finish=True,reset_index=False,graph_name=graph_name)
+    
