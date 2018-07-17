@@ -8,9 +8,9 @@ from util.graph_spec import upper_left_most
 @unique
 class Ops(Enum):
     COLLAPSE_TYPE_A = 0
-    COLLAPSE_TYPE_BC = 1
+    COLLAPSE_TYPE_B = 1
     MERGE_TYPE_A = 2
-    MERGE_TYPE_BC = 3
+    MERGE_TYPE_B = 3
 
 
 # The basic premise for the algorithm is to start on the outside and move inwards, first collapsing
@@ -40,12 +40,12 @@ def algorithmKS(layer_states, rs, planarity, check_valid):
 
             if op == Ops.COLLAPSE_TYPE_A:
                 collapse_type_a(layer_states, layer, rs, arg)
-            elif op == Ops.COLLAPSE_TYPE_BC:
-                collapse_type_bc(layer_states, layer, rs, arg)
+            elif op == Ops.COLLAPSE_TYPE_B:
+                collapse_type_b(layer_states, layer, rs, arg)
             elif op == Ops.MERGE_TYPE_A:
                 merge_type_a(layer_states, layer, rs, arg)
-            elif op == Ops.MERGE_TYPE_BC:
-                merge_type_bc(layer_states, layer, rs, arg)
+            elif op == Ops.MERGE_TYPE_B:
+                merge_type_b(layer_states, layer, rs, arg)
             else:
                 raise ("Invalid operation")
             break
@@ -298,7 +298,7 @@ def prep_cycle(layer_states, layer, rs, cycle):
         while len(t_ordered) != 0:
             t = t_ordered.pop()
             marked_trees.add(t)
-            rs.operations[layer].append((Ops.COLLAPSE_TYPE_BC, t))
+            rs.operations[layer].append((Ops.COLLAPSE_TYPE_B, t))
 
 
 # merge cycle is called when we have no incident trees on this cycle that have not been collapsed.
@@ -377,7 +377,7 @@ def prep_incident_tree(layer_states, layer, rs, c, super_v):
         return
     # If the incident tree is ready to collapse, add the incident tree to the queue for this layer so it as a type B tree.
     rs.tree_will_collapse[layer].add(incident_tree)
-    rs.operations[layer].append((Ops.COLLAPSE_TYPE_BC, incident_tree))
+    rs.operations[layer].append((Ops.COLLAPSE_TYPE_B, incident_tree))
 
 
 def collapse_type_a(layer_states, layer, rs, tree):
@@ -408,7 +408,7 @@ def collapse_type_a(layer_states, layer, rs, tree):
     rs.operations[layer].append((Ops.MERGE_TYPE_A, tree))
 
 
-def collapse_type_bc(layer_states, layer, rs, tree):
+def collapse_type_b(layer_states, layer, rs, tree):
     ls = layer_states[layer]
     if len(ls.supports[tree]) == 0:
         # Because all supports of this Type BC tree were collapsed at the same time,
@@ -432,7 +432,7 @@ def collapse_type_bc(layer_states, layer, rs, tree):
     rs.vertex_to_Bout[v] = super_v
 
     # Add tree to the queue for this layer so it merges as a type B tree
-    rs.operations[layer].append((Ops.MERGE_TYPE_BC, v))
+    rs.operations[layer].append((Ops.MERGE_TYPE_B, v))
 
 
 def merge_type_a(layer_states, layer, rs, tree):
@@ -520,7 +520,7 @@ def merge_type_a(layer_states, layer, rs, tree):
         if len(ls.supports[next_t]) == 0:
             rs.operations[layer].append((Ops.COLLAPSE_TYPE_A, next_t))
         elif len(ls.supports[next_t]) == 1:
-            rs.operations[layer].append((Ops.COLLAPSE_TYPE_BC, next_t))
+            rs.operations[layer].append((Ops.COLLAPSE_TYPE_B, next_t))
     # Otherwise, the successor tree is a type A tree that has collapsed but not yet merged.
     elif not succesor_tree in rs.tree_has_merged[layer]:
         # Merge super and the super vertex of which the successor tree is a part
@@ -528,7 +528,7 @@ def merge_type_a(layer_states, layer, rs, tree):
         rs.tree_to_Bout[layer][succesor_tree] = n_Bout
 
 
-def merge_type_bc(layer_states, layer, rs, v):
+def merge_type_b(layer_states, layer, rs, v):
     def succ(a):
         x, index = ls.vertex_to_cycle_index[a]
         path = ls.cycle_paths[x]
@@ -579,7 +579,7 @@ def merge_type_bc(layer_states, layer, rs, v):
 
             if len(ls.supports[succesor_tree]
                    ) == 1 and len(ls.tree_to_nonconsec[succesor_tree]) <= 1:
-                rs.operations[layer].append((Ops.COLLAPSE_TYPE_BC,
+                rs.operations[layer].append((Ops.COLLAPSE_TYPE_B,
                                              succesor_tree))
             return
 
