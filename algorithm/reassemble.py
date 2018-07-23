@@ -680,7 +680,10 @@ def collapse_tree(vertices, x, v_tree, rs):
 
     indx = dict()
     
-    vertex_to_super_out = [0 for _ in vertices]
+    vertex_to_super_out = dict()
+    for v in vertices:
+        vertex_to_super_out[v] = 0
+
     pred = dict()
     # Refer to the vertex adjacent to x as v
     v = assert_get([a for a in vertices[x] if a in v_tree])

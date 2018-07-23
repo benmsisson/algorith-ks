@@ -5,17 +5,8 @@ from util.layer_state import LayerState
 from util.graph_spec import *
 
 
-# build_layer returns a list containining all the vertices, with only the edges at particular E-Outerplanarity.
+# build_layer returns a dict containining all the verticesand edges at particular E-Outerplanarity.
 def build_layer(blank_verts, remove):
-    # The deepcopy will already contain all the positions of vertices.
-    vertices = deepcopy(blank_verts)
-    # But the edges must be added to each layer.
-    for v, u in remove:
-        vertices[v].add_edge(u)
-        vertices[u].add_edge(v)
-    return vertices
-
-def build_layer_dict(blank_verts, remove):
     vertices = dict()
     for v, u in remove:
         if v not in vertices:
@@ -177,7 +168,6 @@ def start_phase(full_vertices, blank_verts):
         remove_layer(full_vertices, remove)
 
         vertices = build_layer(blank_verts, remove)
-        # vertices = build_layer_dict(blank_verts, remove)
 
         all_degree_two = True
         for v in path:
