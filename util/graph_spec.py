@@ -20,6 +20,16 @@ class Vertex:
     def __getitem__(self, key):
         return self.edges[key]
 
+    def __eq__(self, other):
+        if self.pos!=other.pos:
+            return False
+        if len(self.edges) != len(other.edges):
+            return False
+        for v in range(len(self.edges)):
+            if self.edges[v] != other.edges[v]:
+                return False
+        return True
+
     def __contains__(self, item):
         return item in self.edges
 

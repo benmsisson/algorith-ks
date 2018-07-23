@@ -18,11 +18,9 @@ def build_layer(blank_verts, remove):
 
 # remove_layer is the inverse function to build_layer and removes all the edges from a list of vertices at a partiulcar E-Outerplanarity level.
 def remove_layer(vertices, remove):
-    vertices = deepcopy(vertices)
     for v, u in remove:
         vertices[v].remove_edge(u)
         vertices[u].remove_edge(v)
-    return vertices
 
 
 def parse_cycles(vertices, visited, edges_traversed):
@@ -165,7 +163,7 @@ def start_phase(full_vertices, blank_verts):
 
         path = list(chain(*n_path))
 
-        full_vertices = remove_layer(full_vertices, remove)
+        remove_layer(full_vertices, remove)
 
         vertices = build_layer(blank_verts, remove)
 
