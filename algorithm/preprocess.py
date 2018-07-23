@@ -5,14 +5,18 @@ from util.layer_state import LayerState
 from util.graph_spec import *
 
 
+# build_layer returns a list containining all the vertices, with only the edges at particular E-Outerplanarity.
 def build_layer(blank_verts, remove):
+    # The deepcopy will already contain all the positions of vertices.
     vertices = deepcopy(blank_verts)
+    # But the edges must be added to each layer.
     for v, u in remove:
         vertices[v].add_edge(u)
         vertices[u].add_edge(v)
     return vertices
 
 
+# remove_layer is the inverse function to build_layer and removes all the edges from a list of vertices at a partiulcar E-Outerplanarity level.
 def remove_layer(vertices, remove):
     vertices = deepcopy(vertices)
     for v, u in remove:
@@ -42,7 +46,8 @@ def parse_cycles(vertices, visited, edges_traversed):
             stop = False
             for u in vertices[current]:
                 edge = (min(current, u), max(current, u))
-                # For all edges traversed, if the edge was traversed once the edge is part of a cycle. Otherwise, the edge is part of a tree.
+                # For all edges traversed, if the edge was traversed once the
+                # edge is part of a cycle. Otherwise, the edge is part of a tree.
                 if count[edge] == 2 or u in marked:
                     continue
                 new_cycle.add(edge)
@@ -64,14 +69,19 @@ def parse_cycles(vertices, visited, edges_traversed):
 
 
 def parse_trees(vertices, visited, edges_traversed, cycles, cycle_verts):
-    # To determine the vertices of a particular cycle or tree, begin a depth-first search at both endpoints of a tree or cycle edge and traverse every edge adjacent of the same type. Two cycles or two trees will never share the same vertex, so the depth-first search will traverse the entire tree or cycle and then end.
+    # To determine the vertices of a particular cycle or tree, begin a
+    # depth-first search at both endpoints of a tree or cycle edge and traverse
+    # every edge adjacent of the same type. Two cycles or two trees will never
+    # share the same vertex, so the depth-first search will traverse the entire
+    # tree or cycle and then end.
     cycle_verts = set(cycle_verts)
     trees = []
     support_sets = []
     marked = deepcopy(cycle_verts)
     flat_cycles = set(chain(*cycles))
 
-    # Like above we can do a simple BFS, but we must also keep track of when we hit a cycle vertex.
+    # Like above we can do a simple BFS, but we must also keep track of when we
+    # hit a cycle vertex.
     for v in visited:
         if v in marked:
             continue
@@ -83,8 +93,10 @@ def parse_trees(vertices, visited, edges_traversed, cycles, cycle_verts):
             marked.add(current)
             for u in vertices[current]:
                 new_tree.add((min(current, u), max(current, u)))
-                # For all vertices that have two incident cycle edges, if the tree edge is on the same E-outerplanarity as the vertex, then it is an outward cycle vertex.
-                # Otherwise, then it is an inward cycle vertex.
+                # For all vertices that have two incident cycle edges, if the
+                # tree edge is on the same E-outerplanarity as the vertex, then
+                # it is an outward cycle vertex. Otherwise, then it is an
+                # inward cycle vertex.
                 if u in cycle_verts:
                     support.add(u)
                 elif not u in marked:
@@ -92,7 +104,7 @@ def parse_trees(vertices, visited, edges_traversed, cycles, cycle_verts):
         trees.append(new_tree)
         support_sets.append(support)
 
-    # We miss a single edge tree if it is between two cycles, so catch those now
+    # We miss a single edge tree if it is between two cycles, so catch those.
     flat_trees = set(chain(*trees))
     for v in cycle_verts:
         for u in vertices[v]:
@@ -114,7 +126,8 @@ def start_phase(full_vertices, blank_verts):
     layer_states = []
     while path:
         remove_set = set()
-        # n_path will be a nested list of lists (but we cannot flatten it just yet)
+        # n_path will be a nested list of lists (but we cannot flatten it just
+        # yet).
         n_path = []
         remove = []
         n_visited = []
@@ -130,7 +143,8 @@ def start_phase(full_vertices, blank_verts):
         if len(layer_states) > 0:
             ls_a = layer_states[-1]
 
-        # The edge of this particular E-outerplanarity are now, defined to be all the edges traversed which are contained in path.
+        # The edge of this particular E-outerplanarity are now, defined to be
+        # all the edges traversed which are contained in path.
         for v in path:
             if len(full_vertices[v]) != 0 and v not in remove_set:
                 current_path, current_remove, edges_traversed = outer_face(
@@ -159,8 +173,9 @@ def start_phase(full_vertices, blank_verts):
         for v in path:
             all_degree_two = all_degree_two and len(vertices[v]) == 2
 
-        # If the planarity is 0 and every vertex is degree two then that means that this layer
-        # is a single cycle and we can add the cycle_vertices appropriately
+        # If the planarity is 0 and every vertex is degree two then that means
+        # that this layer is a single cycle and we can add the cycle_vertices
+        # appropriately.
         if planarity == 0 and all_degree_two:
             new_cycle = set()
             for i in range(len(path) - 1):
@@ -193,6 +208,7 @@ def start_phase(full_vertices, blank_verts):
 
     for i, ls in enumerate(layer_states[1:]):
         ls.set_path_above(layer_states[i])
-    # We actual overcount the planarity by 1, because we run once with path = [] for a full go before the loop terminates.
+    # We actual overcount the planarity by 1, because we run once with 
+    # path = [] for a full go before the loop terminates.
     planarity -= 1
     return planarity, layer_states

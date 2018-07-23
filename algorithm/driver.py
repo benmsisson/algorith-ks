@@ -6,7 +6,8 @@ from util.reassembly_state import ReassemblyState
 from util.graph_spec import *
 
 
-# It may be possible to remove space surrounding the graph in order to have it fit the screen more easily.
+# It may be possible to remove space surrounding the graph in order to have it
+# fit the screen more easily.
 def crop_graph(vertices):
     min_x, min_y = 2**16, 2**16
     max_x, max_y = 0, 0

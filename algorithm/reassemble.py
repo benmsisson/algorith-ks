@@ -13,12 +13,14 @@ class Ops(Enum):
     MERGE_TYPE_B = 3
 
 
-# The basic premise for the algorithm is to start on the outside and move inwards, first collapsing
-# Type A trees and Type B trees (with singleton support sets) that have all their vertices in a row,
-# and then merging these trees clockwise. This results in more trees that are now ready to be collapsed.
-# Though it works outside in, the deeper the trees and cycles, the higher their priority in the queue
-# their priority, because they are more recent and because cycles may be waiting for them to collapse before
-# the cycle as a whole can merge.
+# The basic premise for the algorithm is to start on the outside and move
+# inwards, first collapsing Type A trees and Type B trees (with singleton
+# support sets) that have all their vertices in a row, and then merging these
+# trees clockwise. This results in more trees that are now ready to be
+# collapsed. Though it works outside in, the deeper the trees and cycles, the
+# higher their priority in the queue their priority, because they are more
+# recent and because cycles may be waiting for them to collapse before the
+# cycle as a whole can merge.
 def algorithmKS(layer_states, rs, planarity, check_valid):
     if planarity == 1:
         # Not equipped to handle planarity == 1
@@ -27,7 +29,9 @@ def algorithmKS(layer_states, rs, planarity, check_valid):
     # prepare_cycle(outermost cycle enclosing the whole graph)
     prep_cycle(layer_states, 0, rs, 0)
 
-    # While any queue is not empty, pop the oldest tree in the queue at the deepest E-outerplanarity level. If the tree has not collapsed, collapse the tree. Otherwise, merge the tree.
+    # While any queue is not empty, pop the oldest tree in the queue at the
+    # deepest E-outerplanarity level. If the tree has not collapsed, collapse
+    # the tree. Otherwise, merge the tree.
     done = False
     while not done:
         done = True
@@ -123,20 +127,24 @@ def tree_successor(layer_states, layer, rs, tree, super_v):
     return succ(last_v)
 
 
-# prep_cycle is the most complex function in the entire algorith. For a particular cycle, it
-# adds every Type A and Type B tree to operations that is ready to be immediately collapsed. However,
-# the order in which these trees are collapsed is crucial. If there are any Type A trees at a particular layer
-# the first tree to be collapsed MUST be a Type A tree, otherwise, the last cycle could be merged into
-# a Type A tree (which would add significantly more complexity to the merging process). Generally, less
-# complex structures—like Type A, Type B (singleton support set) trees—are merged into more complex
-# structures—like Type C trees and cycles. Though it is usually not linear time to handle merging of
-# trees, by being careful with the order, such that every tree (except for one) on a particular cycle is
-# collapsed and merged before the next cycle is handled, a lot less information needs to be juggled
-# and the complexity is reduced.
+# prep_cycle is the most complex function in the entire algorith. For a
+# particular cycle, it adds every Type A and Type B tree to operations that is
+# ready to be immediately collapsed. However, the order in which these trees
+# are collapsed is crucial. If there are any Type A trees at a particular layer
+# the first tree to be collapsed MUST be a Type A tree, otherwise, the last
+# cycle could be merged into a Type A tree (which would add significantly more
+# complexity to the merging process). Generally, less complex structures, like
+# Type A, Type B (with only one cycle edge) trees—are merged into more complex
+# structures—like Type C trees and cycles. Though it is usually not linear time
+# to handle merging of trees, by being careful with the order, such that every
+# tree (except for one) on a particular cycle is collapsed and merged before
+# the next cycle is handled, a lot less information needs to be juggled and the
+# complexity is reduced.
 def prep_cycle(layer_states, layer, rs, cycle):
     layer = layer + 1
-    # Though cycle is on layer, every tree that we wish to prepare for operation is actually on layer + 1
-    # so we adjust our frame of reference one layer deeper in order to make things easier to understand.
+    # Though cycle is on layer, every tree that we wish to prepare for
+    # operation is actually on layer + 1 so we adjust our frame of reference
+    # one layer deeper in order to make things easier to understand.
     ls = layer_states[layer]
     ls_a = layer_states[layer - 1]
     cycle_to_type_b_count = dict()
@@ -170,11 +178,10 @@ def prep_cycle(layer_states, layer, rs, cycle):
             cycle_to_type_b_count[c] = 0
         cycle_to_type_b_count[c] += 1
 
-    # Go counterclockwise from the first vertex until we find a different tree than the one we started on.
-    # That way, when we go clockwise from that point we can be sure every tree has all of its vertices
-    # in a row when it is collapsed.
-    # CONDITION C.2
-
+    # Go counterclockwise from the first vertex until we find a different tree
+    # than the one we started on. That way, when we go clockwise from that
+    # point we can be sure every tree has all of its vertices in a row when it
+    # is collapsed.
     if last_v_with_tree == -1:
         for v in path:
             if not v in ls.vertex_to_tree:
@@ -192,7 +199,8 @@ def prep_cycle(layer_states, layer, rs, cycle):
 
     _, i = ls_a.vertex_to_cycle_index[last_v_with_tree]
     start = i
-    # We find the next tree that has support set > 1 or a support set 1 and a different support cycle
+    # We find the next tree that has support set > 1 or a support set 1 and a
+    # different support cycle.
     while True:
         i = (i + 1) % len(path)
         v = path[i]
@@ -210,8 +218,8 @@ def prep_cycle(layer_states, layer, rs, cycle):
         if c != start_cycle:
             break
 
-    # Now we can find a cycle that has all of its Type B single support trees in a row and start
-    # the path at the first Type B tree
+    # Now we can find a cycle that has all of its Type B single support trees
+    # in a row and start the path at the first Type B tree.
     path = path[i:] + path[:i]
     current_cycle = None
     start = None
@@ -230,7 +238,8 @@ def prep_cycle(layer_states, layer, rs, cycle):
         if cycle_to_type_b_count[c] == 0:
             break
 
-    # Finally, if it is possible to start at a Type A tree without crossing to another cycle we do so.
+    # Finally, if it is possible to start at a Type A tree without crossing to
+    # another cycle we do so.
     path = path[start:] + path[:start]
     marked_trees = set()
     start = i
@@ -253,8 +262,9 @@ def prep_cycle(layer_states, layer, rs, cycle):
         path = path[i:] + path[:i]
 
     # Now we collapse Type B trees in a clockwise order with respect to cycle.
-    # However, if there is a predecessor to a particular tree A with respect to tree B single support
-    # cycle, we will collapse that tree, even if A is clockwise after B with respect to cycle.
+    # However, if there is a predecessor to a particular tree A with respect to
+    # tree B single support cycle, we will collapse that tree, even if A is
+    # clockwise after B with respect to cycle.
     to_collapse_total = []
     for v in path:
         if not v in ls.vertex_to_tree:
