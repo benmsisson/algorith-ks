@@ -15,6 +15,17 @@ def build_layer(blank_verts, remove):
         vertices[u].add_edge(v)
     return vertices
 
+def build_layer_dict(blank_verts, remove):
+    vertices = dict()
+    for v, u in remove:
+        if v not in vertices:
+            vertices[v] = deepcopy(blank_verts[v])
+        if u not in vertices:
+            vertices[u] = deepcopy(blank_verts[u])
+        vertices[v].add_edge(u)
+        vertices[u].add_edge(v)
+    return vertices
+
 
 # remove_layer is the inverse function to build_layer and removes all the edges from a list of vertices at a partiulcar E-Outerplanarity level.
 def remove_layer(vertices, remove):
@@ -166,6 +177,7 @@ def start_phase(full_vertices, blank_verts):
         remove_layer(full_vertices, remove)
 
         vertices = build_layer(blank_verts, remove)
+        # vertices = build_layer_dict(blank_verts, remove)
 
         all_degree_two = True
         for v in path:

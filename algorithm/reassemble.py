@@ -637,13 +637,13 @@ def collapse_tree(vertices, x, v_tree, rs):
         return i + 1
 
     def set_super(v, new_super):
-        super_v[v] = new_super
+        vertex_to_super_out[v] = new_super
 
     def super_in_to_out(v):
         new_super = rs.super_in[v]
         if new_super == frozenset([v]):
             new_super = rs.super_append(new_super)
-        super_v[v] = new_super
+        vertex_to_super_out[v] = new_super
 
     def angle_from_twelve(x, y):
         return (pi / 2 - atan2(y, x) + 2 * pi) % (2 * pi)
@@ -679,7 +679,8 @@ def collapse_tree(vertices, x, v_tree, rs):
         return pick_angle_by_function(v, min)
 
     indx = dict()
-    super_v = [0 for _ in vertices]
+    
+    vertex_to_super_out = [0 for _ in vertices]
     pred = dict()
     # Refer to the vertex adjacent to x as v
     v = assert_get([a for a in vertices[x] if a in v_tree])
@@ -695,9 +696,9 @@ def collapse_tree(vertices, x, v_tree, rs):
         super_in_to_out(x)
         super_in_to_out(v)
         # Return the super vertex of x and v
-        set_super(x, rs.circle_plus(super_v[x], super_v[v]))
+        set_super(x, rs.circle_plus(vertex_to_super_out[x], vertex_to_super_out[v]))
         rs.update_indx(indx)
-        return super_v[x]
+        return vertex_to_super_out[x]
 
     while v != x:
         # If v is a leaf vertex, we have reached a leaf node, so it will be indexed and then we will retract.
@@ -735,9 +736,9 @@ def collapse_tree(vertices, x, v_tree, rs):
         # As a result, v is ready to collapse.
         super_in_to_out(v)
         # Collapse l and v into a super vertex
-        Balpha = rs.circle_plus(super_v[v], super_v[l])
+        Balpha = rs.circle_plus(vertex_to_super_out[v], vertex_to_super_out[l])
         # Collapse the result with r and store it under v
-        set_super(v, rs.circle_plus(Balpha, super_v[r]))
+        set_super(v, rs.circle_plus(Balpha, vertex_to_super_out[r]))
         # Assign an index to v
         i = index_vertex(v)
         # Refer to the predecessor of v as v
@@ -750,6 +751,6 @@ def collapse_tree(vertices, x, v_tree, rs):
     super_in_to_out(x)
     rs.update_indx(indx)
     # Collapse x and v into a final super vertex
-    set_super(x, rs.circle_plus(super_v[x], super_v[v]))
+    set_super(x, rs.circle_plus(vertex_to_super_out[x], vertex_to_super_out[v]))
     # Return that final super vertex
-    return super_v[x]
+    return vertex_to_super_out[x]
